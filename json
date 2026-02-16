@@ -1,0 +1,142 @@
+{
+  "project": {
+    "name": "mh-title-saas",
+    "goal": "Automate mobile home title recovery for park owners/investors with free-tier-friendly infra.",
+    "principles": [
+      "Stay within free tiers (Supabase, Vercel Hobby, Cloudflare Workers/Queues).",
+      "Agent-swarm (MCP) orchestrates tasks; long work broken into queued jobs.",
+      "State rules live as versioned YAML; all submissions are reproducible from stored inputs."
+    ]
+  },
+  "stack": {
+    "frontend": {
+      "framework": "Next.js (TypeScript)",
+      "hosting": "Vercel Hobby",
+      "forms": "Zod schemas, VIN/HUD photo capture",
+      "auth": "Supabase Auth"
+    },
+    "backend": {
+      "runtime": "Cloudflare Workers (TypeScript)",
+      "queues": "Cloudflare Queues free tier",
+      "cron": "Cloudflare Scheduled Triggers",
+      "pdf": "Worker/edge PDF via @react-pdf or serverless-render"
+    },
+    "data": {
+      "primary_db": "Supabase Postgres (free tier)",
+      "alt_db": "MongoDB Atlas M0 optional",
+      "storage": "Supabase Storage for uploads/evidence",
+      "cache_kv": "Cloudflare KV for hot state/rules cache"
+    },
+    "packages": {
+      "shared": "Types/DTOs",
+      "rules": "State rule YAML loader/validator",
+      "templates": "Handlebars/Markdown packet templates"
+    }
+  },
+  "agents": {
+    "orchestrator": "MCP coordinator routes tasks to workers via Queues.",
+    "agents": [
+      "intake-validator",
+      "state-router (chooses rule set)",
+      "status-check (ELT/mock/RPA)",
+      "packet-builder (forms, cover letters, affidavits)",
+      "mail-submit (EasyPost/Lob sandbox)",
+      "notary-esign",
+      "audit-logger"
+    ],
+    "state_store": "Supabase tables; idempotent task tokens in KV"
+  },
+  "environments": [
+    "local (dev, Supabase local or remote free project)",
+    "staging (Supabase project + Worker/Pages dev + Vercel preview)",
+    "production (Supabase prod + Worker prod + Vercel prod)",
+    "pilot-{client} (optional isolated DB schema)"
+  ],
+  "ci_cd": {
+    "platform": "GitHub Actions",
+    "pipelines": [
+      "lint/test",
+      "build web (Vercel preview)",
+      "build worker",
+      "db migrations (Supabase CLI)",
+      "e2e smoke (Playwright against staging)",
+      "manual approval to prod"
+    ]
+  },
+  "security": {
+    "auth": "Supabase Auth JWT; tenant-scoped RBAC",
+    "secrets": "Vercel/Cloudflare secrets; no secrets in repo",
+    "pii": "Row-level policies; storage bucket per tenant; encryption at rest (Supabase default)",
+    "audit": "Append-only audit_log table; expose to customers"
+  },
+  "integrations": {
+    "mail": "EasyPost or Lob sandbox for Certified Mail labels/tracking",
+    "notary": "Notarize/Stavvy (optional, BYO key)",
+    "elt": "DDI/Vitu/PDP/STA sandbox when available; mock JSON fixtures until then",
+    "payments": "Virtual card/ACH later; start with fee estimation only"
+  },
+  "data_model": {
+    "entities": [
+      "Tenant",
+      "User",
+      "Home (VIN, HUD plate, photos)",
+      "Title",
+      "Lien",
+      "Task (stateful, queued)",
+      "EvidenceBlob (stored in Supabase Storage)",
+      "MailEvent",
+      "StateRule (versioned)",
+      "AuditLog"
+    ]
+  },
+  "workflows": {
+    "title_recovery": [
+      "intake: capture VIN/HUD/address/photos; validate VIN checksum",
+      "lookup: pick state rules; status check via ELT/mock; decide path (duplicate, payoff, abandoned, conversion)",
+      "packet: generate PDFs from templates; e-sign/notary if needed",
+      "submit: via ELT API or RPA/upload stub; mail certified notices",
+      "track: queue-driven status updates; SLA timers; rejection reasons captured",
+      "deliver: electronic/paper title stored; trigger lien release/reissue"
+    ],
+    "manual_state_flow": [
+      "collect required forms/IDs",
+      "generate packet PDF",
+      "create certified mail labels",
+      "log USPS tracking + delivery proofs",
+      "set reminders for statutory waiting periods",
+      "file duplicate/affidavit after notice window"
+    ]
+  },
+  "testing": {
+    "unit": "Jest",
+    "contract": "Pact/Prism mocks for ELT/mail",
+    "e2e": "Playwright against staging",
+    "load": "k6 smoke (keep under free tier)",
+    "monitoring": "Cloudflare Analytics + custom Supabase logs"
+  },
+  "metrics": [
+    "time_to_title",
+    "rejection_rate_by_state",
+    "mail_delivery_confirmation_pct",
+    "task_queue_lag",
+    "cost_per_title (fees + mail)",
+    "pilot_NPS"
+  ],
+  "launch": {
+    "channels": [
+      "state MHA associations",
+      "LinkedIn outbound to park operators",
+      "Product Hunt (awareness)",
+      "Capterra/G2 listings (later)"
+    ],
+    "pricing": "free pilot; per-title fee post-pilot; concierge upsell for abandoned-home cases"
+  },
+  "next_actions": [
+    "init repo with pnpm workspaces (apps/web, apps/worker, packages/rules, packages/shared)",
+    "supabase init + push core schema",
+    "bootstrap Next.js app with Supabase Auth and intake form skeleton",
+    "bootstrap Worker with Queue router and task stubs",
+    "add FL/GA rule YAML placeholders; mock ELT responses",
+    "wire EasyPost/Lob sandbox; record MailEvents"
+  ]
+}
